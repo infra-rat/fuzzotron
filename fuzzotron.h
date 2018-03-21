@@ -25,13 +25,14 @@ struct fuzzer_args {
     int protocol; // 1 == TCP, 2 == UDP
     int destroy; // Use TCP_REPAIR to destroy the connection, do not send a RST after the testcase
     int port;
+    int src_port;
     int is_tls;
 
     int32_t shm_id; // Shared memory address for AFL style tracing
     uint8_t * trace_bits;
     uint8_t virgin_bits[MAP_SIZE];
 
-    int (*send)(char * host, int port, char * data, unsigned long len); // pointer to method to send a packet.
+    int (*send)(char * host, int port, int src_port, char * data, unsigned long len); // pointer to method to send a packet.
 };
 
 extern struct fuzzer_args fuzz;

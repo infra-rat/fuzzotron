@@ -27,6 +27,8 @@
 #include "sender.h"
 #include "util.h"
 
+//#define SRC_PORT 44675
+
 extern int errno;
 
 void setup_tcp(int sock){
@@ -44,10 +46,10 @@ void setup_tcp(int sock){
  * send a char array down a
  * udp socket
 */
-int send_udp(char * host, int port, char * packet, unsigned long packet_len){
+int send_udp(char * host, int port, int src_port, char * packet, unsigned long packet_len){
     int sock = 0;
     ssize_t r;
-    struct sockaddr_in serv_addr;
+    struct sockaddr_in serv_addr, srcaddr;
 
     if((sock = socket(AF_INET, SOCK_DGRAM, 0)) < 0){
         fatal("[!] Error: Could not create socket: %s\n", strerror(errno));
@@ -56,6 +58,21 @@ int send_udp(char * host, int port, char * packet, unsigned long packet_len){
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(port);
     inet_pton(AF_INET, host, &serv_addr.sin_addr);
+
+    memset(&srcaddr, 0, sizeof(srcaddr));
+    srcaddr.sin_family = AF_INET;
+
+    /* This is pretty shitty, hopefully I'll remember 
+     * about this crap someday in the future */
+    srcaddr.sin_addr.s_addr = htonl("127.0.0.1"); 
+    srcaddr.sin_port = htons(src_port);
+
+    int one = 1; setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, &one, sizeof(one));
+
+    if (bind(sock, (struct sockaddr *) &srcaddr, sizeof(srcaddr)) < 0) {
+        perror("bind");
+        exit(1);
+    }
 
     // payload is larger than maximum datagram, send as multiple datagrams
     if(packet_len > 65507){
@@ -98,7 +115,7 @@ int send_udp(char * host, int port, char * packet, unsigned long packet_len){
  *	send a char array down a
  *	tcp socket.
 */
-int send_tcp(char * host, int port, char * packet, unsigned long packet_len){
+int send_tcp(char * host, int port, int src_port, char * packet, unsigned long packet_len){
     int sock = 0;
     struct sockaddr_in serv_addr;
 
@@ -108,7 +125,7 @@ int send_tcp(char * host, int port, char * packet, unsigned long packet_len){
 
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_port = htons(port);
-    inet_pton(AF_INET, host, &serv_addr.sin_addr);
+    	inet_pton(AF_INET, host, &serv_addr.sin_addr);
 
     int c = connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
 	if(c < 0){

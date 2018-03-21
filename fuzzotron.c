@@ -68,7 +68,7 @@ int main(int argc, char** argv) {
         {0, 0, 0, 0}
     };
     int arg_index;
-    while((c = getopt_long(argc, argv, "d:c:h:p:g:t:m:c:P:r:w:s:z:o:", arg_options, &arg_index)) != -1){
+    while((c = getopt_long(argc, argv, "d:c:h:p:b:g:t:m:c:P:r:w:s:z:o:", arg_options, &arg_index)) != -1){
         switch(c){
             case 'c':
                 // Define PID to check for crash
@@ -108,6 +108,12 @@ int main(int argc, char** argv) {
             case 'p':
                 // define port
                 fuzz.port = atoi(optarg);
+                break;
+
+            case 'b':
+                // define source port
+		// TODO: works only for UDP
+                fuzz.src_port = atoi(optarg);
                 break;
 
             case 'P':
@@ -326,7 +332,7 @@ void * worker(void * worker_args){
         // A server crash in calibration is not handled gracefully, this needs to be tidied up
         while(entry){
             memset(fuzz.trace_bits, 0x00, MAP_SIZE);
-            if(fuzz.send(fuzz.host, fuzz.port, entry->data, entry->len) < 0){
+            if(fuzz.send(fuzz.host, fuzz.port, fuzz.src_port, entry->data, entry->len) < 0){
                 fatal("[!] Failure in calibration\n");
             }
 
@@ -456,7 +462,7 @@ int send_cases(void * cases){
         }
         if(fuzz.shm_id){
             memset(fuzz.trace_bits, 0x00, MAP_SIZE);
-            ret = fuzz.send(fuzz.host, fuzz.port, entry->data, entry->len);
+            ret = fuzz.send(fuzz.host, fuzz.port, fuzz.src_port, entry->data, entry->len);
             //stop = send_tcp(fuzz.host, fuzz.port, entry->data, entry->len);
             if(ret < 0)
                 break;
@@ -486,7 +492,7 @@ int send_cases(void * cases){
         }
         else {
             // no instrumentation
-            ret = fuzz.send(fuzz.host, fuzz.port, entry->data, entry->len);
+            ret = fuzz.send(fuzz.host, fuzz.port, fuzz.src_port, entry->data, entry->len);
 
             if(ret < 0)
                 break;
@@ -562,7 +568,7 @@ int calibrate_case(char * testcase, unsigned long len, uint8_t * trace_bits){
     uint32_t hash, tmp_hash, i;
 
     memset(trace_bits, 0x00, MAP_SIZE);
-    if(fuzz.send(fuzz.host, fuzz.port, testcase, len) < 0){
+    if(fuzz.send(fuzz.host, fuzz.port, fuzz.src_port, testcase, len) < 0){
         return -1;
     }
 
@@ -574,7 +580,7 @@ int calibrate_case(char * testcase, unsigned long len, uint8_t * trace_bits){
 
     for(i = 0; i < 4; i++){
         memset(trace_bits, 0x00, MAP_SIZE);
-        if(fuzz.send(fuzz.host, fuzz.port, testcase, len) < 0){
+        if(fuzz.send(fuzz.host, fuzz.port, fuzz.src_port, testcase, len) < 0){
             return -1;
         }
         tmp_hash = wait_for_bitmap(trace_bits);
@@ -684,6 +690,7 @@ void help(){
     printf("Connection Options:\n");
     printf("\t-h\t\tIP of host to connect to REQUIRED\n");
     printf("\t-p\t\tPort to connect to REQUIRED\n");
+    printf("\t-b\t\tSource port to connect from OPTIONAL WORKS ONLY FOR UDP\n");
     printf("\t-P\t\tProtocol to use (tcp,udp) REQUIRED\n");
     printf("\t--ssl\t\tUse SSL for the connection\n");
     printf("\t--destroy\t\tUse TCP_REPAIR mode to immediately destroy the connection, do not send FIN/RST.");
